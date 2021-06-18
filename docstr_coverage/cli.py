@@ -9,6 +9,7 @@ from typing import List, Optional
 
 import click
 
+import export
 from docstr_coverage.badge import Badge
 from docstr_coverage.config_file import set_config_defaults
 from docstr_coverage.coverage import analyze
@@ -214,6 +215,13 @@ def parse_ignore_patterns_from_dict(ignore_patterns_dict) -> tuple:
     show_default=False,
 )
 @click.option(
+    "--export",
+    type=click.Path(exists=False, resolve_path=True),
+    default=None,
+    help="[Experimental] Export a detailed report to the given filepath",
+    show_default=False,
+)
+@click.option(
     "-p",
     "--percentage-only",
     is_flag=True,
@@ -326,6 +334,9 @@ def execute(paths, **kwargs):
     LegacyPrinter(verbosity=kwargs["verbose"], ignore_config=ignore_config).print(results)
 
     file_results, total_results = results.to_legacy()
+
+    if kwargs["export"]:
+        export.export(results, kwargs["export"])
 
     # Save badge
     if kwargs["badge"]:
