@@ -21,6 +21,8 @@ PARTLY_EXCUSED_FILE_PATH = os.path.join(EXCUSED_SAMPLES_DIRECTORY, "partially_ex
 SAMPLES_C_DIRECTORY = os.path.join("tests", "extra_samples")
 PRIVATE_NO_DOCS_PATH = os.path.join(SAMPLES_C_DIRECTORY, "private_undocumented.py")
 
+INDIVIDUAL_SAMPLES_DIR = os.path.join("tests", "individual_samples")
+
 
 def test_should_report_for_an_empty_file():
     result = analyze([EMPTY_FILE_PATH])
@@ -158,7 +160,7 @@ def test_should_report_when_no_docs_in_a_file():
 def test_logging_empty_file(caplog, expected):
     with caplog.at_level(logging.DEBUG):
         result = analyze([EMPTY_FILE_PATH])
-        LegacyPrinter(verbosity=3).print(result)
+        LegacyPrinter(verbosity=4).print(result)
         _file_results, _total_results = result.to_legacy()
 
     if platform.system() == "Windows":
@@ -261,3 +263,37 @@ def test_skip_private():
         "empty": False,
     }
     assert total_results == {"missing_count": 1, "needed_count": 2, "coverage": 50.0}
+
+
+def test_long_doc():
+    """Regression test on issue 79.
+
+    Multiline docstrings can be a smoke test when checking
+    the tokenize tokens (which is based on line numbers)."""
+    result = analyze([os.path.join(INDIVIDUAL_SAMPLES_DIR, "long_doc.py")])
+    assert result.count_aggregate().coverage() == 75.0
+    assert result.count_aggregate().num_files == 1
+    # 2 + 1 inline ignore
+    assert result.count_aggregate().found == 3
+    assert result.count_aggregate().needed == 4
+
+
+@pytest.mark.parametrize(
+    ["ignore_setter", "ignore_deleter", "ignore_property", "coverage"],
+    [
+        (False, False, False, 3 / 6),
+        (True, False, False, 3 / 5),
+        (False, True, False, 3 / 5),
+        (False, False, True, 3 / 5),
+        (True, True, True, 3 / 3),
+    ],
+)
+def test_skip_decorators(ignore_setter, ignore_deleter, ignore_property, coverage):
+    """Tests ignoring of property decorators"""
+    ignore_config = IgnoreConfig(
+        skip_setter=ignore_setter,
+        skip_property=ignore_property,
+        skip_deleter=ignore_deleter,
+    )
+    result = analyze([os.path.join(INDIVIDUAL_SAMPLES_DIR, "decorators.py")], ignore_config)
+    assert result.count_aggregate().coverage() == coverage * 100

@@ -78,6 +78,9 @@ docstr-coverage some_project/src
 - _--skip-file-doc, -f_ - Ignore module docstrings (at the top of files)
 - _--skip-private, -P_ - Ignore private functions (starting with a single underscore)
 - _--skip-class-def, -c_ - Ignore docstrings of class definitions
+- _--skip-property, -sp_ - Ignore functions with `@property` decorator
+- _--include-setter, -is_ - Include functions with `@setter` decorator (skipped by default)
+- _--include-deleter, -idel_ - Include functions with `@deleter` decorator (skipped by default)
 - _--accept-empty, -a_ - Exit with code 0 if no Python files are found (default: exit code 1)
 - _--exclude=\<regex\>, -e \<regex\>_ - Filepath pattern to exclude from analysis
   - To exclude the contents of a virtual environment `env` and your `tests` directory, run:
@@ -87,6 +90,7 @@ docstr-coverage some_project/src
   - 1 - Print overall statistics
   - 2 - Also print individual statistics for each file
   - 3 - Also print missing docstrings (function names, class names, etc.)
+  - 4 - Also print information about present docstrings
 - _--fail-under=<int|float>, -F <int|float>_ - Fail if under a certain percentage of coverage (default: 100.0)
 - _--docstr-ignore-file=\<filepath\>, -d \<filepath\>_ - Filepath containing list of patterns to ignore. Patterns are (file-pattern, name-pattern) pairs
   - File content example:
@@ -107,14 +111,16 @@ docstr-coverage some_project/src
 - _--help, -h_ - Display CLI options
 
 #### Config File
-All options can be saved in a config file named `.docstr.yaml`
-example:
+All options can be saved in a config file. A file named `.docstr.yaml` in the folder in which `docstr-coverage` is executed is picked up automatically. 
+Other locations can be passed using `docstr-coverage -C path/to/config.json` or the long version `--config`.
+
+Example:
 ```yaml
 paths: # list or string
   - docstr_coverage
 badge: docs # Path
 exclude: .*/test # regex
-verbose: 1 # int (0-3)
+verbose: 3 # int (0-4)
 skip_magic: True # Boolean
 skip_file_doc: True # Boolean
 skip_init: True # Boolean
@@ -168,6 +174,22 @@ class FooBarChild(FooBar):
     # docstr-coverage:inherited
     def function(self):
         pass
+```
+
+#### Pre-commit hook
+
+You can use `docstr-coverage` as a pre-commit hook by adding the following to your `.pre-commit-config.yaml` file 
+and configuring the `paths` section of the [`.docstr.yaml` config](#config-file). 
+ This is preferrable over [pre-commit args](https://pre-commit.com/#config-args), 
+ as it facilitates the use of the same config in CI, pre-commit and manual runs.
+
+```yaml
+repos:
+  - repo: https://github.com/HunterMcGushion/docstr_coverage
+    rev: v2.1.1 # most recent docstr-coverage release or commit sha
+    hooks:
+      - id: docstr-coverage
+        args: ["--verbose", "2"] # override the .docstr.yaml to see less output
 ```
 
 #### Package in Your Project

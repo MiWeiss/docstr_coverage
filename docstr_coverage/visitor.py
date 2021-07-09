@@ -2,6 +2,7 @@
 import re
 import tokenize
 from ast import ClassDef, FunctionDef, Module, NodeVisitor, get_docstring
+from typing import Optional
 
 ACCEPTED_EXCUSE_PATTERNS = (
     re.compile(r"#\s*docstr-coverage\s*:\s*inherit(ed)?\s*"),
@@ -25,7 +26,7 @@ class DocStringCoverageVisitor(NodeVisitor):
         with module-wide node info."""
         has_doc = self._has_docstring(node)
         is_empty = not len(node.body)
-        self.tree.append((has_doc, is_empty, []))
+        self.tree.append((has_doc, is_empty, None, []))
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ClassDef):
@@ -42,7 +43,8 @@ class DocStringCoverageVisitor(NodeVisitor):
         also visited"""
         self.symbol_count += 1
         has_doc = self._has_doc_or_excuse(node)
-        _node = (node.name, has_doc, [])
+        relevant_decorator = self._relevant_decorator(node)
+        _node = (node.name, has_doc, relevant_decorator, [])
         self.tree[-1][-1].append(_node)
         self.tree.append(_node)
         self.generic_visit(node)
@@ -75,10 +77,6 @@ class DocStringCoverageVisitor(NodeVisitor):
         """Iterates through the tokenize tokens above the passed node to evaluate whether a
         doc-missing excuse has been placed (right) above this nodes begin"""
         node_start = node.lineno
-        assert node_start < len(self.tokens), (
-            "An unexpected context occurred during parsing of {} "
-            "It seems not all file lines were tokenized for comment checking."
-        ).format(self.filename)
 
         # Find the index of first token which starts at the same line as the node
         token_index = -1
@@ -104,3 +102,18 @@ class DocStringCoverageVisitor(NodeVisitor):
     def _has_docstring(node):
         """Uses ast to check if the passed node contains a non-empty docstring"""
         return get_docstring(node) is not None and get_docstring(node).strip() != ""
+
+    @staticmethod
+    def _relevant_decorator(node) -> Optional[str]:
+        if hasattr(node, "decorator_list"):
+            for parsed_decorator in node.decorator_list:
+                if hasattr(parsed_decorator, "id"):
+                    if parsed_decorator.id == "property":
+                        return "@property"
+                if hasattr(parsed_decorator, "attr"):
+                    if parsed_decorator.attr == "setter":
+                        return "@setter"
+                if hasattr(parsed_decorator, "attr"):
+                    if parsed_decorator.attr == "deleter":
+                        return "@deleter"
+        return None
